@@ -1,0 +1,38 @@
+name: Cron Test Dependencies
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: [3.7]
+        rasa-version: [3.0]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip setuptools wheel
+        pip install -e ".[all]" --use-deprecated=legacy-resolver
+        pip install --upgrade rasa[spacy]==${{ matrix.rasa-version }}
+        # The sanic version is set manually here because at the time
+        # of writing, this issue persisted:
+        # https://github.com/RasaHQ/rasa/issues/10585
+        pip install pytest pyvi sanic==21.9.3
+    - name: Test with pytest
+      run: |
+        python tests/scripts/prepare_fasttext.py
+        chmod 775 tests/data/fasttext/custom_fasttext_model.bin
+        pytest -v --disable-warnings
+    - name: Confirm Smoketests
+      run: |
+        python scripts/smoketests.py
